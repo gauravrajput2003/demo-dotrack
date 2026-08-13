@@ -38,6 +38,16 @@ app.get('/devices/:imei/history', async (req, res, next) => {
     res.json(data);
   } catch (err) { next(err); }
 });
+app.delete('/devices/:imei', async (req, res, next) => {
+  try {
+    const { imei } = req.params;
+    const result = await locations.deleteMany({ imei });
+    io.emit('device-removed', { imei }); // tells connected dashboards to drop it live
+    res.json({ imei, deletedCount: result.deletedCount });
+  } catch (err) {
+    next(err);
+  }
+});
 app.post('/ingest/location', async (req, res, next) => {
   try {
     if (!process.env.INGEST_SECRET || req.get('x-ingest-secret') !== process.env.INGEST_SECRET) return res.status(401).json({ error: 'Unauthorized' });

@@ -6,7 +6,7 @@ const apiUrl = process.env.API_URL || 'http://localhost:10000';
 const secret = process.env.INGEST_SECRET;
 const connections = new Map();
 const hex = b => b.toString('hex').toUpperCase();
-const bcd = b => [...b].map(x => x.toString(16).padStart(2, '0')).join('').replace(/F/g, '');
+const bcd = b => [...b].map(x => x.toString(16).padStart(2, '0')).join('').replace(/^0/, '').replace(/F/g, '');
 const crc16 = buffer => { let crc = 0xFFFF; for (const byte of buffer) { crc ^= byte << 8; for (let i=0;i<8;i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF; } return crc; };
 function ack(protocol, serial) { const payload = Buffer.from([0x05, protocol, serial >> 8, serial & 255]); const crc = crc16(payload); return Buffer.concat([Buffer.from([0x78,0x78]), payload, Buffer.from([crc >> 8, crc & 255, 0x0D,0x0A])]); }
 function parseGps(frame, imei) {
