@@ -6,11 +6,35 @@ import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 
 const app = express();
-const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
-app.use(cors({ origin: allowedOrigin }));
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://rad-toffee-29171e.netlify.app'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin
+    // e.g. Postman, server-to-server requests
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  }
+}));
+
 app.use(express.json());
+
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: allowedOrigin, methods: ['GET', 'POST'] } });
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST']
+  }
+});
 const client = new MongoClient(process.env.MONGODB_URI);
 const db = client.db(process.env.MONGODB_DB || 'fleetpulse');
 const locations = db.collection('locations');
@@ -42,7 +66,7 @@ app.delete('/devices/:imei', async (req, res, next) => {
   try {
     const { imei } = req.params;
     const result = await locations.deleteMany({ imei });
-    io.emit('device-removed', { imei }); // tells connected dashboards to drop it live
+    io.emit('device-removed', { imei }); 
     res.json({ imei, deletedCount: result.deletedCount });
   } catch (err) {
     next(err);

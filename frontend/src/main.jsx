@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Bell, ChevronLeft, Gauge, MapPin, Navigation, Play, Radio, Search, Settings, Zap } from 'lucide-react';
+import { Bell, ChevronLeft, Gauge, MapPin, Navigation, Play, Pause, Radio, Search, Settings, Zap } from 'lucide-react';
 import { io } from 'socket.io-client';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
@@ -51,6 +51,15 @@ function App() {
         setTimeout(() => setToast(''), 5000);
       }
     });
+    s.on('device-removed', ({ imei }) => {
+      setDevices(prev => {
+        if (!(imei in prev)) return prev;
+        const next = { ...prev };
+        delete next[imei];
+        return next;
+      });
+      setActive(a => (a?.imei === imei ? null : a));
+    });
     return () => s.close();
   }, [active?.imei]);
 
@@ -74,6 +83,10 @@ function App() {
   const stopped = vehicles.length - running;
   const overspeedCount = vehicles.filter(v => Number(v.speed) > LIMIT).length;
   const selectVehicle = v => { setActive(v); setCursor(0); };
+
+  const maxCursor = Math.max(0, history.length - 1);
+  const cursorValue = Math.min(cursor, maxCursor);
+  const progress = maxCursor > 0 ? Math.round((cursorValue / maxCursor) * 100) : 0;
 
   return (
     <main className="app-shell">
@@ -149,15 +162,19 @@ function App() {
           )}
 
           <div className="history-card">
-            <button onClick={() => setPlaying(!playing)}><Play size={18} fill="currentColor" />{playing ? 'Pause history' : 'Play history'}</button>
+            <button onClick={() => setPlaying(!playing)}>
+              {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+              <span>{playing ? 'Pause history' : 'Play history'}</span>
+            </button>
             <input
               type="range"
               min="0"
-              max={Math.max(0, history.length - 1)}
-              value={Math.min(cursor, Math.max(0, history.length - 1))}
+              max={maxCursor}
+              value={cursorValue}
+              style={{ '--progress': progress }}
               onChange={e => { setPlaying(false); setCursor(Number(e.target.value)); }}
             />
-            <span>{history.length ? `${cursor + 1} / ${history.length}` : 'No route yet'}</span>
+            <span>{history.length ? `${cursorValue + 1} / ${history.length}` : 'No route yet'}</span>
           </div>
         </div>
       </section>
