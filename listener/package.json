@@ -1,0 +1,7 @@
+{
+  "name": "fleet-pulse-listener",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": { "start": "node src/listener.js", "dev": "node --watch src/listener.js" },
+  "dependencies": { "dotenv": "^16.4.7" }
+}

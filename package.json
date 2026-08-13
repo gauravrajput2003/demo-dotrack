@@ -1,0 +1,11 @@
+{
+  "name": "fleet-pulse-demo",
+  "private": true,
+  "workspaces": ["backend", "listener", "frontend"],
+  "scripts": {
+    "dev:api": "npm --workspace backend run dev",
+    "dev:listener": "npm --workspace listener run dev",
+    "dev:web": "npm --workspace frontend run dev",
+    "build": "npm --workspace frontend run build"
+  }
+}
