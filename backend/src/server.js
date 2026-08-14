@@ -8,7 +8,7 @@ import { Server } from 'socket.io';
 const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://rad-toffee-29171e.netlify.app'
+  'https://precious-longma-575419.netlify.app'
 ];
 
 app.use(cors({
@@ -80,6 +80,61 @@ app.post('/ingest/location', async (req, res, next) => {
     io.emit('location-update', location);
     res.status(201).json(location);
   } catch (err) { next(err); }
+});
+app.post('/ingest/status', async (req, res, next) => {
+  try {
+    if (
+      !process.env.INGEST_SECRET ||
+      req.get('x-ingest-secret') !== process.env.INGEST_SECRET
+    ) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { imei, ignition } = req.body;
+
+    if (!imei || typeof ignition !== 'boolean') {
+      return res.status(400).json({
+        error: 'imei and ignition(boolean) are required'
+      });
+    }
+
+    const latest = await locations.findOne(
+      { imei: String(imei) },
+      { sort: { timestamp: -1 } }
+    );
+
+    if (!latest) {
+      return res.status(404).json({
+        error: 'No GPS location found for this device'
+      });
+    }
+
+    await locations.updateOne(
+      { _id: latest._id },
+      {
+        $set: {
+          ignition,
+          receivedAt: new Date()
+        }
+      }
+    );
+
+    const updated = {
+      ...latest,
+      ignition,
+      receivedAt: new Date()
+    };
+
+    io.emit('location-update', updated);
+
+    console.log(
+      `STATUS UPDATED ${imei}: ignition=${ignition ? 'ON' : 'OFF'}`
+    );
+
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
 });
 app.use((err, _, res, __) => { console.error(err); res.status(400).json({ error: err.message || 'Request failed' }); });
 

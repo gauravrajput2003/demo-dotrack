@@ -15,6 +15,18 @@ const carIcon = alert => L.divIcon({ className: '', html: `<div class="vehicle-m
 function Fit({ position }) { const map = useMap(); useEffect(() => { if (position) map.flyTo([position.lat, position.lng], 14, { duration: 1.2 }); }, [position?.lat, position?.lng]); return null; }
 function ago(date) { if (!date) return 'Waiting for GPS'; const seconds = Math.max(0, Math.round((Date.now() - new Date(date)) / 1000)); return seconds < 60 ? `Updated ${seconds}s ago` : `Updated ${Math.floor(seconds / 60)}m ago`; }
 
+// ignition can be: true (ON), false (confirmed OFF via heartbeat), or null/undefined (no heartbeat yet - unknown)
+function ignitionState(value) {
+  if (value === true) return 'on';
+  if (value === false) return 'off';
+  return 'unknown';
+}
+function ignitionLabel(value) {
+  if (value === true) return 'ON';
+  if (value === false) return 'OFF';
+  return 'Unknown';
+}
+
 function App() {
   const [devices, setDevices] = useState({}); // imei -> latest location
   const [active, setActive] = useState(null);
@@ -79,8 +91,9 @@ function App() {
 
   const display = selected && history[cursor] && playing ? history[cursor] : selected;
   const overspeed = Number(display?.speed) > LIMIT;
-  const running = vehicles.filter(v => v.ignition).length;
-  const stopped = vehicles.length - running;
+  const running = vehicles.filter(v => v.ignition === true).length;
+  const stopped = vehicles.filter(v => v.ignition === false).length;
+  const unknownCount = vehicles.length - running - stopped;
   const overspeedCount = vehicles.filter(v => Number(v.speed) > LIMIT).length;
   const selectVehicle = v => { setActive(v); setCursor(0); };
 
@@ -98,9 +111,9 @@ function App() {
           {vehicles.length === 0 && <p className="empty-state">No devices connected yet. Waiting for tracker...</p>}
           {vehicles.map(v => (
             <button key={v.imei} className={`vehicle-row ${selected?.imei === v.imei ? 'selected' : ''}`} onClick={() => selectVehicle(v)}>
-              <div className={`dot ${v.ignition ? 'online' : 'idle'}`} />
+              <div className={`dot ${ignitionState(v.ignition)}`} />
               <div><strong>{v.name}</strong><small>{v.plate}</small></div>
-              <span>{Math.round(v.speed)}<small> km/h</small></span>
+              <span>{Math.round(v.speed || 0)}<small> km/h</small></span>
             </button>
           ))}
         </div>
@@ -117,7 +130,7 @@ function App() {
         <div className="mobile-fleet">
           {vehicles.map(v => (
             <button key={v.imei} className={selected?.imei === v.imei ? 'selected' : ''} onClick={() => selectVehicle(v)}>
-              <i className={v.ignition ? 'online' : 'idle'} /><span>{v.name}</span><b>{Math.round(v.speed)} km/h</b>
+              <i className={ignitionState(v.ignition)} /><span>{v.name}</span><b>{Math.round(v.speed || 0)} km/h</b>
             </button>
           ))}
         </div>
@@ -125,7 +138,7 @@ function App() {
         <div className="summary-bar">
           <div className="summary total"><span>Total vehicles</span><b>{vehicles.length}</b><small>In your fleet</small></div>
           <div className="summary running"><span>Running</span><b>{running}</b><small>Ignition on</small></div>
-          <div className="summary stopped"><span>Stopped</span><b>{stopped}</b><small>Awaiting dispatch</small></div>
+          <div className="summary stopped"><span>Stopped</span><b>{stopped}</b><small>Confirmed off</small></div>
           <div className="summary overspeed"><span>Overspeed</span><b>{overspeedCount}</b><small>Above {LIMIT} km/h</small></div>
         </div>
 
@@ -150,11 +163,11 @@ function App() {
             <div className="info-card">
               <div className="card-top"><div><p>{selected.plate}</p><h2>{selected.name}</h2></div><button className="more">...</button></div>
               <div className="status-line">
-                <span className={display?.ignition ? 'on' : 'off'}><i /> Ignition {display?.ignition ? 'ON' : 'OFF'}</span>
+                <span className={ignitionState(display?.ignition)}><i /> Ignition {ignitionLabel(display?.ignition)}</span>
                 <span className="gps"><MapPin size={16} /> GPS {display?.satellites ? `${display.satellites} satellites` : 'Strong'}</span>
               </div>
               <div className="metrics">
-                <div className="speed-readout"><div><Gauge /><small>CURRENT SPEED</small></div><b className={overspeed ? 'danger' : ''}>{Math.round(display?.speed || 0)}</b><em>km/h</em></div>
+                <div className="speed-readout"><div><Gauge /><small>CURRENT SPEED</small></div><b className={overspeed ? 'danger' : ''}>{display?.speed == null ? '--' : Math.round(display.speed)}</b><em>km/h</em></div>
                 <div className="update-readout"><p>LAST UPDATE</p><strong>{ago(display?.timestamp || now)}</strong><small>IMEI {selected.imei}</small></div>
               </div>
               {overspeed && <div className="alert-line"><Zap size={16} /> Speed limit {LIMIT} km/h exceeded</div>}
